@@ -3,9 +3,10 @@ import itertools
 from io import StringIO
 
 import pendulum
-from google.cloud import storage
 from metaflow import FlowSpec, JSONType, Parameter, step
+from sqlalchemy.orm import Session
 
+from osrs import database
 from osrs.remote import SkillRow, yield_skill_rows
 
 GCS_BUCKET = "osrs-hiscores-etl"
@@ -56,26 +57,46 @@ class Flow(FlowSpec):
 
     @step
     def start(self):
-        self.skill_pages = list(itertools.product(self.skills, [self.pages]))
-        self.next(self.download_page, foreach="skill_pages")
+        # self.skill_pages = list(itertools.product(self.skills, [self.pages]))
+        self.next(self.download_page, foreach="skills")
 
     @step
     def download_page(self):
-        skill_name: str
-        page_number: int
-        skill_name, page_number = self.input
+        skill_name: str = self.input
+        target_pages = set(range(1, self.pages + 1))
 
-        buffer = StringIO()
-        writer = csv.DictWriter(buffer, SkillRow.fields())
+        with Session(database.make_engine()) as session:
+            loaded_pages = set(
+                n
+                for (n,) in session.query(database.Page.page_number).filter_by(
+                    skill_name=skill_name,
+                    datestamp=self.datestamp,
+                )
+            )
+            unloaded_pages = target_pages - loaded_pages
 
-        for row in yield_skill_rows(skill_name, page_number):
-            writer.writerow(row.as_dict())
+            for page_number in unloaded_pages:
+                page = database.Page(
+                    skill_name=skill_name,
+                    page_number=page_number,
+                    datestamp=self.datestamp,
+                )
+                rows = [
+                    database.Score(
+                        page=page,
+                        skill_name=skill_name,
+                        player_name=row.name,
+                        rank=row.rank,
+                        level=row.level,
+                        xp=row.xp,
+                        timestamp=row.timestamp,
+                    )
+                    for row in yield_skill_rows(skill_name, page_number)
+                ]
 
-        buffer.seek(0)
-
-        bucket = storage.Client().bucket(GCS_BUCKET)
-        blob = bucket.blob(f"{self.datestamp}/{skill_name}/{page_number}.csv")
-        blob.upload_from_string(buffer.getvalue(), content_type="text/csv")
+                session.add(page)
+                session.add_all(rows)
+                session.commit()
 
         self.next(self.join)
 
