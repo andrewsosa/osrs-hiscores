@@ -4,3 +4,5 @@ node_modules
 .vscode
 .envrc
 *.json
+.pytest_cache
+.metaflow

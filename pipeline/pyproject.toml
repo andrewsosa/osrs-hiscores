@@ -9,13 +9,21 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.10"
-apache-beam = "^2.37.0"
 requests = "^2.27.1"
+pendulum = "^2.1.2"
+backoff = "^1.11.1"
+metaflow = "^2.7.10"
+google-cloud-storage = "^2.5.0"
+google-cloud-bigquery = "^3.3.2"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^4.0.1"
 black = "^22.3.0"
 isort = "^5.10.1"
+bigquery-schema-generator = "^1.5"
+pytest = "^7.1.1"
+responses = "^0.20.0"
+freezegun = "^1.2.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -23,3 +31,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.isort]
 profile = "black"
+float_to_top = true
+
+[tool.black]
+# line-length = 88

@@ -5,8 +5,16 @@ const logger = require("morgan");
 const app = express();
 app.use(logger("dev"));
 
-const handler = (res) => (err) =>
-  res.status(404).send({ status: 404, error: err });
+const handlerServerError = (res) => (err) =>
+  res.status(500).send({ status: 500, error: err });
+
+const handleApiResponse = (res) => (hiscores) => {
+  if (!!hiscores.length) {
+    res.status(200).send(hiscores);
+  } else {
+    res.status(503).send({ status: 503, error: "Service Unavailable" });
+  }
+};
 
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
@@ -20,8 +28,8 @@ app.use((req, res, next) => {
 app.get("/player/:rsn", (req, res) => {
   hiscores
     .getStatsByGamemode(req.params.rsn)
-    .then((response) => res.send(response))
-    .catch(handler(res));
+    .then(handleApiResponse(res))
+    .catch(handlerServerError(res));
 });
 
 app.get("/skill/:skill/", (req, res) => {
@@ -31,8 +39,8 @@ app.get("/skill/:skill/", (req, res) => {
 
   hiscores
     .getSkillPage(skill, mode, page)
-    .then((response) => res.send(response))
-    .catch(handler(res));
+    .then(handleApiResponse(res))
+    .catch(handlerServerError(res));
 });
 
 const port = process.env.PORT || 8080;
